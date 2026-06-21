@@ -1,0 +1,349 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Instagram Spam Detection API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: analyses
+    description: Spam analysis operations
+  - name: flagged
+    description: Flagged account management
+  - name: stats
+    description: Dashboard statistics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /analyses:
+    get:
+      operationId: listAnalyses
+      tags: [analyses]
+      summary: List all spam analyses
+      parameters:
+        - in: query
+          name: verdict
+          schema:
+            type: string
+            enum: [spam, not_spam, uncertain]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Analysis"
+    post:
+      operationId: createAnalysis
+      tags: [analyses]
+      summary: Submit an Instagram account for spam analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisInput"
+      responses:
+        "201":
+          description: Analysis created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analysis"
+
+  /analyses/{id}:
+    get:
+      operationId: getAnalysis
+      tags: [analyses]
+      summary: Get a specific analysis
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Analysis details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analysis"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteAnalysis
+      tags: [analyses]
+      summary: Delete an analysis record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /flagged-accounts:
+    get:
+      operationId: listFlaggedAccounts
+      tags: [flagged]
+      summary: List all flagged accounts
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, confirmed_spam, false_positive]
+      responses:
+        "200":
+          description: List of flagged accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FlaggedAccount"
+
+  /flagged-accounts/{id}/status:
+    patch:
+      operationId: updateFlaggedAccountStatus
+      tags: [flagged]
+      summary: Update the review status of a flagged account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FlaggedAccountStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlaggedAccount"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Detection statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectionStats"
+
+  /spam-indicators:
+    get:
+      operationId: listSpamIndicators
+      tags: [stats]
+      summary: List common spam indicator patterns across recent analyses
+      responses:
+        "200":
+          description: Spam indicator frequency data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpamIndicator"
+
+  /recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [stats]
+      summary: Recent analysis activity feed
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Analysis:
+      type: object
+      required: [id, username, verdict, spamScore, indicators, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        profileUrl:
+          type: ["string", "null"]
+        verdict:
+          type: string
+          enum: [spam, not_spam, uncertain]
+        spamScore:
+          type: number
+          description: Spam probability 0-100
+        indicators:
+          type: array
+          items:
+            type: string
+          description: List of detected spam signals
+        followerCount:
+          type: ["integer", "null"]
+        followingCount:
+          type: ["integer", "null"]
+        postCount:
+          type: ["integer", "null"]
+        accountAgeDays:
+          type: ["integer", "null"]
+        bio:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AnalysisInput:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        followerCount:
+          type: ["integer", "null"]
+        followingCount:
+          type: ["integer", "null"]
+        postCount:
+          type: ["integer", "null"]
+        accountAgeDays:
+          type: ["integer", "null"]
+        bio:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    FlaggedAccount:
+      type: object
+      required: [id, analysisId, username, spamScore, status, createdAt]
+      properties:
+        id:
+          type: integer
+        analysisId:
+          type: integer
+        username:
+          type: string
+        spamScore:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed_spam, false_positive]
+        reviewedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    FlaggedAccountStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed_spam, false_positive]
+
+    DetectionStats:
+      type: object
+      required: [totalAnalyses, spamDetected, notSpam, uncertain, averageSpamScore, todayAnalyses, confirmedSpam, falsePositives]
+      properties:
+        totalAnalyses:
+          type: integer
+        spamDetected:
+          type: integer
+        notSpam:
+          type: integer
+        uncertain:
+          type: integer
+        averageSpamScore:
+          type: number
+        todayAnalyses:
+          type: integer
+        confirmedSpam:
+          type: integer
+        falsePositives:
+          type: integer
+
+    SpamIndicator:
+      type: object
+      required: [indicator, count, percentage]
+      properties:
+        indicator:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+
+    ActivityItem:
+      type: object
+      required: [id, type, username, verdict, spamScore, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        username:
+          type: string
+        verdict:
+          type: string
+        spamScore:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
